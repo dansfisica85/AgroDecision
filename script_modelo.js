@@ -3,6 +3,19 @@ let autocomplete;
 function initMap() {
     const input = document.getElementById('location');
     autocomplete = new google.maps.places.Autocomplete(input);
+
+    // Listener para quando um lugar é selecionado
+    autocomplete.addListener('place_changed', function() {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) {
+            alert('Por favor, selecione um lugar válido.');
+            return;
+        }
+        // Pegue a latitude e longitude do local selecionado
+        const latitude = place.geometry.location.lat();
+        const longitude = place.geometry.location.lng();
+        console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
+    });
 }
 
 async function fetchClimateDataFromNASA(latitude, longitude, startDate, endDate) {
@@ -12,6 +25,7 @@ async function fetchClimateDataFromNASA(latitude, longitude, startDate, endDate)
             throw new Error('Erro ao buscar dados climáticos da NASA');
         }
         const data = await response.json();
+        console.log(data);
         return data.properties.parameter.T2M;
     } catch (error) {
         console.error('Erro ao buscar dados climáticos:', error);
@@ -21,7 +35,7 @@ async function fetchClimateDataFromNASA(latitude, longitude, startDate, endDate)
 }
 
 async function fetchData() {
-    const cropType = sanitizeInput(document.getElementById('cropType').value);
+    const cropType = sanitizeInput(document.getElementById('plantio').value);
     const location = sanitizeInput(document.getElementById('location').value);
     const startDate = sanitizeInput(document.getElementById('startDate').value.replace(/-/g, ''));
     const endDate = sanitizeInput(document.getElementById('endDate').value.replace(/-/g, ''));
