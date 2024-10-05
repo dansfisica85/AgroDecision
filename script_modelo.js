@@ -1,23 +1,54 @@
+let autocomplete;
+
+function initMap() {
+    const input = document.getElementById('location');
+    autocomplete = new google.maps.places.Autocomplete(input);
+}
+
 async function fetchClimateDataFromNASA(latitude, longitude, startDate, endDate) {
-    const response = await fetch(`https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M&community=AG&longitude=${longitude}&latitude=${latitude}&start=${startDate}&end=${endDate}&format=JSON`);
-    const data = await response.json();
-    return data.properties.parameter.T2M;
+    try {
+        const response = await fetch(`https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M&community=AG&longitude=${longitude}&latitude=${latitude}&start=${startDate}&end=${endDate}&format=JSON`);
+        if (!response.ok) {
+            throw new Error('Erro ao buscar dados climáticos da NASA');
+        }
+        const data = await response.json();
+        return data.properties.parameter.T2M;
+    } catch (error) {
+        console.error('Erro ao buscar dados climáticos:', error);
+        alert('Erro ao buscar dados climáticos. Por favor, tente novamente mais tarde.');
+        return null;
+    }
 }
 
 async function fetchData() {
-    const cropType = document.getElementById('cropType').value;
-    const latitude = document.getElementById('latitude').value;
-    const longitude = document.getElementById('longitude').value;
-    const startDate = document.getElementById('startDate').value.replace(/-/g, '');
-    const endDate = document.getElementById('endDate').value.replace(/-/g, '');
+    const cropType = sanitizeInput(document.getElementById('cropType').value);
+    const location = sanitizeInput(document.getElementById('location').value);
+    const startDate = sanitizeInput(document.getElementById('startDate').value.replace(/-/g, ''));
+    const endDate = sanitizeInput(document.getElementById('endDate').value.replace(/-/g, ''));
+
+    if (!cropType || !location || !startDate || !endDate) {
+        alert('Por favor, preencha todos os campos.');
+        return;
+    }
+
+    const place = autocomplete.getPlace();
+    if (!place || !place.geometry) {
+        alert("Por favor, selecione uma localização válida.");
+        return;
+    }
+    const latitude = place.geometry.location.lat();
+    const longitude = place.geometry.location.lng();
 
     const climateData = await fetchClimateDataFromNASA(latitude, longitude, startDate, endDate);
+    if (!climateData) {
+        return;
+    }
 
     // Analisar dados climáticos para determinar a melhor data de colheita
     const bestHarvestDate = analyzeData(climateData);
 
     // Armazenar informações no histórico
-    storeData({ cropType, latitude, longitude, startDate, endDate, bestHarvestDate });
+    storeData({ cropType, location, startDate, endDate, bestHarvestDate });
 
     document.getElementById('output').innerText = `Melhor data de colheita: ${bestHarvestDate.date}\nMotivo: ${bestHarvestDate.reason}`;
 }
@@ -50,3 +81,11 @@ function storeData(data) {
     history.push(data);
     localStorage.setItem('history', JSON.stringify(history));
 }
+
+function sanitizeInput(input) {
+    const element = document.createElement('div');
+    element.innerText = input;
+    return element.innerHTML;
+}
+
+window.onload = initMap;
